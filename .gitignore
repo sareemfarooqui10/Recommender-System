@@ -6,3 +6,5 @@
 *.log
 __pycache__/
 .env
+# Ignore large local data files
+data/Reviews.csv
