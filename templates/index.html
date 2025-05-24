@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Food Recommendation System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Light gray background */
+        }
+        .container {
+            max-width: 800px;
+            margin: 4rem auto;
+            padding: 2rem;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .form-group label {
+            font-weight: 600;
+            color: #374151;
+        }
+        .form-control {
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            width: 100%;
+            transition: border-color 0.2s;
+        }
+        .form-control:focus {
+            outline: none;
+            border-color: #6366f1; /* Indigo-500 */
+        }
+        .btn {
+            background-color: #4f46e5; /* Indigo-600 */
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: background-color 0.2s;
+            cursor: pointer;
+        }
+        .btn:hover {
+            background-color: #4338ca; /* Indigo-700 */
+        }
+        .radio-group label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        .radio-group input[type="radio"] {
+            margin-right: 0.5rem;
+            accent-color: #4f46e5; /* Indigo-600 */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-8">Food Recommendation System</h1>
+
+        <form action="/recommend" method="post" class="space-y-6">
+            <div class="form-group">
+                <label for="user_id" class="block text-sm mb-2">User ID (for Collaborative Filtering):</label>
+                <input type="text" id="user_id" name="user_id" class="form-control" placeholder="e.g., A3SGXH7AUHU8GW">
+                <p class="text-xs text-gray-500 mt-1">Leave empty for Popularity-based recommendations.</p>
+            </div>
+
+            <div class="form-group">
+                <label for="num_recommendations" class="block text-sm mb-2">Number of Recommendations:</label>
+                <input type="number" id="num_recommendations" name="num_recommendations" class="form-control" value="5" min="1" max="20">
+            </div>
+
+            <div class="form-group">
+                <label class="block text-sm mb-2">Select Recommendation Model:</label>
+                <div class="flex items-center space-x-4 radio-group">
+                    <label>
+                        <input type="radio" name="model_type" value="popularity" checked>
+                        Popularity-based
+                    </label>
+                    <label>
+                        <input type="radio" name="model_type" value="collaborative">
+                        Collaborative Filtering (SVD)
+                    </label>
+                </div>
+            </div>
+
+            <div class="text-center">
+                <button type="submit" class="btn w-full sm:w-auto">Get Recommendations</button>
+            </div>
+        </form>
+    </div>
+</body>
+</html>

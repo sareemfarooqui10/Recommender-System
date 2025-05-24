@@ -1,0 +1,8 @@
+# Ignore CSV files
+*.csv
+
+# Optional: Ignore system/editor files
+.DS_Store
+*.log
+__pycache__/
+.env
