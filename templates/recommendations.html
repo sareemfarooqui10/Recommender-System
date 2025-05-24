@@ -39,6 +39,7 @@
             display: flex; /* Use flexbox for better alignment */
             justify-content: space-between; /* Space between product ID and score */
             align-items: center;
+            flex-wrap: wrap; /* Allow items to wrap on smaller screens */
         }
         .error-message {
             background-color: #fee2e2; /* Red-100 */
@@ -50,10 +51,26 @@
         }
         .product-info {
             font-weight: 600;
+            flex-basis: 100%; /* Take full width on small screens */
+            margin-bottom: 0.5rem; /* Space below product ID */
         }
-        .average-score {
+        .score-helpfulness-info {
+            display: flex;
+            gap: 1rem; /* Space between score and helpfulness */
             font-size: 0.9em;
             color: #4b5563; /* Gray-700 */
+            flex-basis: 100%; /* Take full width on small screens */
+            justify-content: flex-end; /* Align to right on small screens */
+        }
+        @media (min-width: 640px) { /* Tailwind's 'sm' breakpoint */
+            .product-info {
+                flex-basis: auto; /* Auto width on larger screens */
+                margin-bottom: 0;
+            }
+            .score-helpfulness-info {
+                flex-basis: auto;
+                justify-content: flex-start; /* Reset alignment on larger screens */
+            }
         }
     </style>
 </head>
@@ -69,6 +86,9 @@
         {% else %}
             <p class="text-lg text-gray-700 mb-4">
                 Recommendations for User ID: <span class="font-semibold">{{ user_id }}</span>
+                {% if model_type == 'collaborative' and user_id != 'N/A (Popularity)' %}
+                    (<span class="font-semibold">{{ profile_name }}</span>)
+                {% endif %}
             </p>
             <p class="text-lg text-gray-700 mb-6">
                 Model Used: <span class="font-semibold">
@@ -82,7 +102,10 @@
                     {% for product in recommendations %}
                         <li class="list-item text-gray-700">
                             <span class="product-info">{{ product.ProductId }}</span>
-                            <span class="average-score">Avg Score: {{ product.AvgScore }}</span>
+                            <div class="score-helpfulness-info">
+                                <span class="average-score">Avg Score: {{ product.AvgScore }}/5</span>
+                                <span class="average-score">Total HelpfulnessTotal Helpfulness: {{ product.TotalHelpfulness }} users found the review of this product useful</span>
+                            </div>
                         </li>
                     {% endfor %}
                 </ul>

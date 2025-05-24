@@ -18,7 +18,9 @@ df_final = None
 pivot_df = None
 preds_df = None
 user_id_to_iloc_idx = None
-product_avg_scores = {} # New global variable to store average scores for products
+product_avg_scores = {} # Stores average review scores for products
+product_total_helpfulness = {} # Stores TOTAL helpfulness numerator for products
+user_profile_names = {} # Stores mapping of UserId to ProfileName
 
 def load_and_preprocess_data():
     """
@@ -26,7 +28,7 @@ def load_and_preprocess_data():
     as done in the Jupyter notebook.
     This function will be called once when the Flask app starts.
     """
-    global df_final, pivot_df, preds_df, user_id_to_iloc_idx, product_avg_scores
+    global df_final, pivot_df, preds_df, user_id_to_iloc_idx, product_avg_scores, product_total_helpfulness, user_profile_names
 
     print("Loading and preprocessing data...")
     try:
@@ -35,18 +37,24 @@ def load_and_preprocess_data():
         print(f"Error: {DATA_PATH} not found. Please ensure the CSV file is in the correct directory.")
         return False
 
-    # Calculate average scores for all products before filtering for user ratings
-    product_avg_scores = df.groupby('ProductId')['Score'].mean().round(2).to_dict()
+    # Store UserId to ProfileName mapping before dropping columns
+    user_profile_names = df.set_index('UserId')['ProfileName'].to_dict()
 
-    # Dropping the columns as per notebook
-    df = df.drop(['Id', 'ProfileName','Time','HelpfulnessNumerator','HelpfulnessDenominator','Text','Summary'], axis = 1)
+    # Calculate average scores for all products
+    product_avg_scores = df.groupby('ProductId')['Score'].mean().round(2).to_dict()
+    # Calculate TOTAL helpfulness numerator for all products
+    product_total_helpfulness = df.groupby('ProductId')['HelpfulnessNumerator'].sum().to_dict()
+
+    # Dropping columns as per notebook, but keeping 'HelpfulnessNumerator' for total calculation
+    df = df.drop(['Id', 'Time','HelpfulnessDenominator','Text','Summary'], axis = 1)
+    # Note: 'ProfileName' is dropped from this df now, but its mapping is already stored in user_profile_names
 
     # Filter users who have given 50 or more ratings
     counts = df['UserId'].value_counts()
     df_final = df[df['UserId'].isin(counts[counts >= 50].index)]
 
     # Create the pivot table for Collaborative Filtering
-    pivot_df = pd.pivot_table(df_final, index=['UserId'], columns='ProductId', values="Score")
+    pivot_df = pd.pivot_table(df_final, index=['UserId'], columns = 'ProductId', values = "Score")
     pivot_df.fillna(0, inplace=True)
 
     # Create the mapping from UserId (string) to its integer positional index (iloc_idx)
@@ -74,33 +82,42 @@ def load_and_preprocess_data():
 def recommend_popularity(num_recommendations=5):
     """
     Generates popularity-based recommendations.
-    Returns a list of dictionaries with 'ProductId' and 'AvgScore'.
+    Returns a list of dictionaries with 'ProductId', 'AvgScore', and 'TotalHelpfulness',
+    sorted by AvgScore in descending order.
     """
-    if df_final is None or not product_avg_scores:
+    if df_final is None or not product_avg_scores or not product_total_helpfulness:
         return []
 
     train_data_grouped = df_final.groupby('ProductId').agg({'UserId': 'count'}).reset_index()
-    train_data_grouped.rename(columns={'UserId': 'score'}, inplace=True)
-    train_data_sort = train_data_grouped.sort_values(['score', 'ProductId'], ascending=[0, 1])
+    train_data_grouped.rename(columns={'UserId': 'score'},inplace=True)
+    train_data_sort = train_data_grouped.sort_values(['score', 'ProductId'], ascending = [0,1]) 
     popularity_recommendations = train_data_sort.head(num_recommendations)
 
-    recommended_products_with_scores = []
+    recommended_products_with_details = []
     for product_id in popularity_recommendations['ProductId'].tolist():
         avg_score = product_avg_scores.get(product_id, 'N/A')
-        recommended_products_with_scores.append({
+        total_helpfulness = product_total_helpfulness.get(product_id, 'N/A')
+        recommended_products_with_details.append({
             'ProductId': product_id,
-            'AvgScore': avg_score
+            'AvgScore': avg_score,
+            'TotalHelpfulness': total_helpfulness
         })
-    return recommended_products_with_scores
+    
+    # Sort the final list by AvgScore in descending order
+    # Handle 'N/A' by treating it as a low value for sorting purposes
+    recommended_products_with_details.sort(key=lambda x: x['AvgScore'] if isinstance(x['AvgScore'], (int, float)) else -1, reverse=True)
+
+    return recommended_products_with_details
 
 def recommend_svd(user_id, num_recommendations=10):
     """
     Generates SVD-based collaborative filtering recommendations for a given user.
-    Returns a list of dictionaries with 'ProductId' and 'AvgScore'.
+    Returns a list of dictionaries with 'ProductId', 'AvgScore', and 'TotalHelpfulness',
+    sorted by AvgScore in descending order.
     """
     global user_id_to_iloc_idx 
 
-    if pivot_df is None or preds_df is None or user_id_to_iloc_idx is None or not product_avg_scores:
+    if pivot_df is None or preds_df is None or user_id_to_iloc_idx is None or not product_avg_scores or not product_total_helpfulness:
         return []
 
     try:
@@ -121,14 +138,21 @@ def recommend_svd(user_id, num_recommendations=10):
 
         recommended_products_ids = temp.head(num_recommendations).index.tolist()
         
-        recommended_products_with_scores = []
+        recommended_products_with_details = []
         for product_id in recommended_products_ids:
             avg_score = product_avg_scores.get(product_id, 'N/A')
-            recommended_products_with_scores.append({
+            total_helpfulness = product_total_helpfulness.get(product_id, 'N/A')
+            recommended_products_with_details.append({
                 'ProductId': product_id,
-                'AvgScore': avg_score
+                'AvgScore': avg_score,
+                'TotalHelpfulness': total_helpfulness
             })
-        return recommended_products_with_scores
+        
+        # Sort the final list by AvgScore in descending order
+        # Handle 'N/A' by treating it as a low value for sorting purposes
+        recommended_products_with_details.sort(key=lambda x: x['AvgScore'] if isinstance(x['AvgScore'], (int, float)) else -1, reverse=True)
+
+        return recommended_products_with_details
     except Exception as e:
         print(f"Error during SVD recommendation for user {user_id}: {e}")
         return []
@@ -157,6 +181,7 @@ def get_recommendations():
 
     recommendations = []
     error_message = None
+    profile_name = "N/A"
 
     if model_type == 'popularity':
         recommendations = recommend_popularity(num_recommendations)
@@ -166,6 +191,8 @@ def get_recommendations():
         if not user_id:
             error_message = "Please enter a User ID for Collaborative Filtering."
         else:
+            profile_name = user_profile_names.get(user_id, "Unknown Profile")
+            
             recommendations = recommend_svd(user_id, num_recommendations)
             if isinstance(recommendations, str): 
                 error_message = recommendations
@@ -177,6 +204,7 @@ def get_recommendations():
 
     return render_template('recommendations.html',
                            user_id=user_id if model_type == 'collaborative' else 'N/A (Popularity)',
+                           profile_name=profile_name,
                            num_recommendations=num_recommendations,
                            model_type=model_type,
                            recommendations=recommendations,
@@ -188,4 +216,3 @@ if __name__ == '__main__':
         app.run(debug=True)
     else:
         print("Application could not start due to data loading/preprocessing errors.")
-
